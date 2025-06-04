@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Chosen Palette: Warm Neutrals with Indigo and Pink accents -->
+    <!-- Application Structure Plan: A single-page dashboard designed for educational exploration. The structure progresses logically from theory and setup to interactive simulation and data analysis. This task-oriented flow was chosen over mirroring the report's linear structure to create a more engaging and intuitive learning tool. The core is the interactive chart, which allows users to dynamically explore the time-based relationships between voltage and current, something static tables cannot achieve. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Circuit Diagram (Fig. 6) -> Goal: Inform -> Viz/Method: HTML/CSS diagram with hover info -> Interaction: Hover -> Justification: Provides clear, immediate context for the experiment's setup.
+        - Report Info: Charge/Discharge Equations & Data (Tables 1, 2) -> Goal: Explore Change & Compare -> Viz/Method: Dynamic Chart.js line chart and interactive HTML table -> Interaction: Mode toggle (Charge/Discharge), time slider, key time point buttons -> Justification: This is the most effective way to visualize time-dependent behavior. The slider offers granular control, promoting active learning and replacing passive reading of static data. It directly fulfills the report's goal of verifying behavior.
+        - Library/Method: Chart.js (Canvas-based) for the main graph. Vanilla JS for all logic. Tailwind CSS for styling.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <title>Simulador Interativo de Circuito RC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 40vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .param-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .btn-active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .btn-inactive {
+            background-color: #e5e7eb;
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <header class="bg-white shadow-sm">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Experiência 10: Simulador de Capacitor em Regime DC</h1>
+            <p class="text-sm sm:text-base text-slate-600 mt-1">Uma exploração interativa do comportamento de um circuito RC.</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <section id="setup" class="mb-12">
+            <h2 class="text-xl sm:text-2xl font-bold mb-4 text-slate-900">1. Fundamentos e Configuração do Circuito</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                <div>
+                    <p class="mb-4 text-slate-700 leading-relaxed">
+                        Esta aplicação simula o circuito RC série da Figura 6 do seu guia de laboratório. O objetivo é verificar experimentalmente como a tensão e a corrente se comportam durante os ciclos de carga e descarga de um capacitor quando alimentado por uma fonte de tensão DC (simulada por uma onda quadrada).
+                    </p>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="font-semibold text-lg mb-3 text-slate-800">Equações Governantes</h3>
+                        <div class="text-sm">
+                            <p class="mb-2"><strong class="text-indigo-600">Carga:</strong></p>
+                            <p class="ml-4 mb-1">$V_C(t) = E \cdot (1 - e^{-t/\lambda})$</p>
+                            <p class="ml-4 mb-3">$i(t) = \frac{E}{R} \cdot e^{-t/\lambda}$</p>
+                            <p class="mb-2"><strong class="text-pink-600">Descarga:</strong></p>
+                            <p class="ml-4 mb-1">$V_C(t) = E \cdot e^{-t/\lambda}$</p>
+                            <p class="ml-4">$i(t) = -\frac{E}{R} \cdot e^{-t/\lambda}$</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow">
+                     <h3 class="font-semibold text-lg mb-4 text-slate-800">Parâmetros do Experimento</h3>
+                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div class="param-card bg-slate-50 border border-slate-200 p-3 rounded-md text-center transition-all duration-200">
+                            <p class="text-xs sm:text-sm font-medium text-slate-500">Fonte (E)</p>
+                            <p class="text-base sm:text-lg font-bold text-indigo-600">12 V</p>
+                        </div>
+                         <div class="param-card bg-slate-50 border border-slate-200 p-3 rounded-md text-center transition-all duration-200">
+                            <p class="text-xs sm:text-sm font-medium text-slate-500">Resistor (R)</p>
+                            <p class="text-base sm:text-lg font-bold text-indigo-600">1 kΩ</p>
+                        </div>
+                         <div class="param-card bg-slate-50 border border-slate-200 p-3 rounded-md text-center transition-all duration-200">
+                            <p class="text-xs sm:text-sm font-medium text-slate-500">Capacitor (C)</p>
+                            <p class="text-base sm:text-lg font-bold text-indigo-600">0.1 µF</p>
+                        </div>
+                         <div class="param-card bg-amber-50 border border-amber-300 p-3 rounded-md text-center transition-all duration-200">
+                            <p class="text-xs sm:text-sm font-medium text-amber-600">Constante de Tempo ($\lambda$)</p>
+                            <p class="text-base sm:text-lg font-bold text-amber-700">100 µs</p>
+                        </div>
+                     </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="simulation" class="bg-white p-4 sm:p-6 rounded-lg shadow-lg mb-12">
+             <h2 class="text-xl sm:text-2xl font-bold mb-4 text-slate-900">2. Simulador Interativo</h2>
+            <p class="mb-6 text-slate-700 max-w-3xl">
+                Selecione um modo (Carga ou Descarga) para ver o comportamento correspondente no gráfico. Use o controlo deslizante para explorar a evolução temporal do circuito. Os botões de atalho levam-no a múltiplos da constante de tempo ($\lambda$), os pontos-chave da análise.
+            </p>
+             <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                <div class="flex space-x-2 rounded-lg p-1 bg-slate-200">
+                    <button id="charge-btn" class="px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200">Carga</button>
+                    <button id="discharge-btn" class="px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200">Descarga</button>
+                </div>
+                <div id="live-data" class="flex flex-wrap justify-center gap-4 text-center">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500">Tempo (t)</p>
+                        <p id="time-display" class="font-bold text-lg text-slate-800">0 µs</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-slate-500">Tensão Vc(t)</p>
+                        <p id="vc-display" class="font-bold text-lg text-indigo-600">0.00 V</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-slate-500">Corrente i(t)</p>
+                        <p id="current-display" class="font-bold text-lg text-pink-600">12.00 mA</p>
+                    </div>
+                </div>
+             </div>
+            <div class="chart-container mb-6">
+                <canvas id="rcChart"></canvas>
+            </div>
+             <div class="flex flex-col items-center gap-4">
+                 <input id="time-slider" type="range" min="0" max="600" value="0" class="w-full max-w-xl h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                 <div class="flex flex-wrap justify-center gap-2">
+                     <button data-time="100" class="time-btn px-3 py-1 text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-full transition">1λ</button>
+                     <button data-time="200" class="time-btn px-3 py-1 text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-full transition">2λ</button>
+                     <button data-time="300" class="time-btn px-3 py-1 text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-full transition">3λ</button>
+                     <button data-time="400" class="time-btn px-3 py-1 text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-full transition">4λ</button>
+                     <button data-time="500" class="time-btn px-3 py-1 text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-full transition">5λ</button>
+                 </div>
+             </div>
+        </section>
+
+        <section id="data-analysis">
+            <h2 class="text-xl sm:text-2xl font-bold mb-4 text-slate-900">3. Análise de Dados Teóricos</h2>
+            <p class="mb-6 text-slate-700 max-w-3xl">
+                A tabela abaixo apresenta os valores teóricos calculados para a tensão no capacitor ($V_C$) e a corrente no circuito ($i$) nos múltiplos da constante de tempo $\lambda$. Compare estes valores com os que observa no simulador interativo acima.
+            </p>
+            <div class="overflow-x-auto bg-white rounded-lg shadow">
+                <table class="w-full text-sm text-left text-slate-600">
+                    <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Tempo (t)</th>
+                            <th scope="col" class="px-6 py-3">Vc Teórico [V]</th>
+                            <th scope="col" class="px-6 py-3">i Teórico [mA]</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-table-body">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center py-6 mt-8">
+        <p class="text-sm text-slate-500">Simulador desenvolvido para fins educacionais com base no guia da Experiência 10.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const R = 1000;
+            const C = 0.0000001;
+            const E = 12;
+            const LAMBDA_S = R * C;
+            const LAMBDA_US = LAMBDA_S * 1e6;
+
+            let currentMode = 'charge';
+            let chartInstance;
+            let annotationLine;
+
+            const chargeBtn = document.getElementById('charge-btn');
+            const dischargeBtn = document.getElementById('discharge-btn');
+            const timeSlider = document.getElementById('time-slider');
+            const timeDisplay = document.getElementById('time-display');
+            const vcDisplay = document.getElementById('vc-display');
+            const currentDisplay = document.getElementById('current-display');
+            const dataTableBody = document.getElementById('data-table-body');
+            const timeButtons = document.querySelectorAll('.time-btn');
+
+            const calculateVcCharge = (t_s) => E * (1 - Math.exp(-t_s / LAMBDA_S));
+            const calculateCurrentCharge = (t_s) => (E / R) * Math.exp(-t_s / LAMBDA_S) * 1000;
+            const calculateVcDischarge = (t_s) => E * Math.exp(-t_s / LAMBDA_S);
+            const calculateCurrentDischarge = (t_s) => -(E / R) * Math.exp(-t_s / LAMBDA_S) * 1000;
+            
+            const createDatasets = (mode) => {
+                const timePoints = Array.from({ length: 601 }, (_, i) => i);
+                const vcData = [];
+                const currentData = [];
+                const vSourceData = [];
+                
+                timePoints.forEach(t_us => {
+                    const t_s = t_us / 1e6;
+                    if (mode === 'charge') {
+                        vcData.push(calculateVcCharge(t_s));
+                        currentData.push(calculateCurrentCharge(t_s));
+                        vSourceData.push(E);
+                    } else {
+                        vcData.push(calculateVcDischarge(t_s));
+                        currentData.push(calculateCurrentDischarge(t_s));
+                        vSourceData.push(0);
+                    }
+                });
+
+                return {
+                    labels: timePoints,
+                    datasets: [
+                        {
+                            label: 'Tensão Vc(t) [V]',
+                            data: vcData,
+                            borderColor: '#4f46e5',
+                            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'y',
+                            fill: true,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Corrente i(t) [mA]',
+                            data: currentData,
+                            borderColor: '#db2777',
+                            backgroundColor: 'rgba(219, 39, 119, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'y1',
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Fonte Vg(t) [V]',
+                            data: vSourceData,
+                            borderColor: '#f59e0b',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'y',
+                            stepped: true,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                };
+            };
+            
+            const updateTable = (mode) => {
+                dataTableBody.innerHTML = '';
+                const timePoints = [LAMBDA_US, 2 * LAMBDA_US, 3 * LAMBDA_US, 4 * LAMBDA_US, 5 * LAMBDA_US];
+                timePoints.forEach((t_us, i) => {
+                    const t_s = t_us / 1e6;
+                    let vc, current;
+                    if (mode === 'charge') {
+                        vc = calculateVcCharge(t_s);
+                        current = calculateCurrentCharge(t_s);
+                    } else {
+                        vc = calculateVcDischarge(t_s);
+                        current = calculateCurrentDischarge(t_s);
+                    }
+                    const row = `
+                        <tr class="bg-white border-b hover:bg-slate-50">
+                            <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">${t_us} µs (${i + 1}λ)</td>
+                            <td class="px-6 py-4">${vc.toFixed(2)}</td>
+                            <td class="px-6 py-4">${current.toFixed(2)}</td>
+                        </tr>
+                    `;
+                    dataTableBody.innerHTML += row;
+                });
+            };
+
+            const updateDisplays = (time_us) => {
+                const time_s = time_us / 1e6;
+                let vc, current;
+                if (currentMode === 'charge') {
+                    vc = calculateVcCharge(time_s);
+                    current = calculateCurrentCharge(time_s);
+                } else {
+                    vc = calculateVcDischarge(time_s);
+                    current = calculateCurrentDischarge(time_s);
+                }
+                timeDisplay.textContent = `${Math.round(time_us)} µs`;
+                vcDisplay.textContent = `${vc.toFixed(2)} V`;
+                currentDisplay.textContent = `${current.toFixed(2)} mA`;
+            };
+            
+            annotationLine = {
+                id: 'annotationLine',
+                beforeDraw: (chart) => {
+                    if (chart.tooltip?._active?.length) {
+                        const activePoint = chart.tooltip._active[0];
+                        const ctx = chart.ctx;
+                        const x = activePoint.element.x;
+                        const topY = chart.scales.y.top;
+                        const bottomY = chart.scales.y.bottom;
+                        
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.moveTo(x, topY);
+                        ctx.lineTo(x, bottomY);
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+                        ctx.setLineDash([6, 6]);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }
+            };
+            
+            const initChart = () => {
+                const ctx = document.getElementById('rcChart').getContext('2d');
+                const initialData = createDatasets('charge');
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: initialData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Tempo (µs)'
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Tensão (V)',
+                                    color: '#4f46e5'
+                                },
+                                min: -0.5,
+                                max: E + 1
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Corrente (mA)',
+                                    color: '#db2777'
+                                },
+                                min: -E/R*1000 -1,
+                                max: E/R*1000 + 1,
+                                grid: {
+                                    drawOnChartArea: false, 
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += context.parsed.y.toFixed(2);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    plugins: [annotationLine]
+                });
+            };
+            
+            const setMode = (mode) => {
+                currentMode = mode;
+                if (mode === 'charge') {
+                    chargeBtn.classList.add('btn-active');
+                    chargeBtn.classList.remove('btn-inactive');
+                    dischargeBtn.classList.add('btn-inactive');
+                    dischargeBtn.classList.remove('btn-active');
+                } else {
+                    dischargeBtn.classList.add('btn-active');
+                    dischargeBtn.classList.remove('btn-inactive');
+                    chargeBtn.classList.add('btn-inactive');
+                    chargeBtn.classList.remove('btn-active');
+                }
+                const newData = createDatasets(mode);
+                chartInstance.data.datasets.forEach((dataset, index) => {
+                    dataset.data = newData.datasets[index].data;
+                });
+                chartInstance.update();
+                updateTable(mode);
+                updateDisplays(timeSlider.value);
+            };
+
+            timeSlider.addEventListener('input', (e) => {
+                const time_us = e.target.value;
+                updateDisplays(time_us);
+                chartInstance.tooltip.setActiveElements([{ datasetIndex: 0, index: parseInt(time_us) }], { x: 0, y: 0 });
+                chartInstance.update();
+            });
+
+            chargeBtn.addEventListener('click', () => setMode('charge'));
+            dischargeBtn.addEventListener('click', () => setMode('discharge'));
+            
+            timeButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const time = btn.dataset.time;
+                    timeSlider.value = time;
+                    timeSlider.dispatchEvent(new Event('input'));
+                });
+            });
+
+            initChart();
+            setMode('charge'); 
+        });
+    </script>
+</body>
+</html>
